@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Utilisateur {
+  id              Int              @id @default(autoincrement())
+  nom             String
+  email           String           @unique
+  mot_de_passe    String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  prenom          String
+  telechargements Telechargement[]
+
+  @@map("utilisateurs")
+}
+
+model Fichier {
+  id              Int              @id @default(autoincrement())
+  nom             String
+  chemin          String
+  taille          String
+  type            String
+  date_upload     DateTime         @default(now())
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime?        @updatedAt
+  liensPartage    LienPartage[]
+  telechargements Telechargement[]
+
+  @@map("fichiers")
+}
+
+model LienPartage {
+  id          Int       @id @default(autoincrement())
+  url         String    @unique
+  code_access String?
+  expiration  DateTime
+  fichier_id  Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime? @updatedAt
+  fichier     Fichier   @relation(fields: [fichier_id], references: [id], onDelete: Cascade, map: "fk_lien_partage_fichier")
+
+  @@index([fichier_id])
+  @@map("liens_partage")
+}
+
+model Telechargement {
+  id             Int         @id @default(autoincrement())
+  fichier_id     Int
+  utilisateur_id Int
+  date           DateTime    @default(now())
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  fichier        Fichier     @relation(fields: [fichier_id], references: [id], onDelete: Cascade, map: "fk_telechargement_fichier")
+  utilisateur    Utilisateur @relation(fields: [utilisateur_id], references: [id], onDelete: Cascade, map: "fk_telechargement_utilisateur")
+
+  @@unique([fichier_id, utilisateur_id])
+  @@index([utilisateur_id])
+  @@map("telechargements")
+}
