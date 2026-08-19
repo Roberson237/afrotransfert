@@ -51,15 +51,16 @@
     "uuid": "13.0.0"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "4.0.0",
     "@types/bcryptjs": "2.4.6",
     "@types/cors": "2.8.19",
     "@types/jsonwebtoken": "9.0.10",
     "@types/multer": "2.0.0",
     "@types/nodemailer": "7.0.3",
+    "autoprefixer": "10.4.20",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "8.57.0",
     "eslint-config-next": "14.2.0",
-    "tailwindcss": "4.0.0"
+    "postcss": "8.5.0",
+    "tailwindcss": "3.4.17"
   }
 }
