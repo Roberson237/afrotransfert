@@ -70,42 +70,10 @@ export default function Uploade() {
         return;
       }
     } else {
-      setUploadState('loading');
-      setProgress(0);
+      setUploadState('ready');
       fileToUpload = files[0];
-
-      const formData = new FormData();
-      formData.append('file', fileToUpload);
-
-      const xhr = new XMLHttpRequest();
-
-      xhr.upload.addEventListener('progress', (event) => {
-        if (event.lengthComputable) {
-          const percentComplete = (event.loaded / event.total) * 100;
-          setProgress(percentComplete);
-        }
-      });
-
-      xhr.addEventListener('load', () => {
-        if (xhr.status === 200) {
-          setProgress(100);
-          setSelectedFile(fileToUpload);
-          setUploadState('ready');
-        } else {
-          console.error('Upload failed');
-          setUploadState('idle');
-          setProgress(0);
-        }
-      });
-
-      xhr.addEventListener('error', () => {
-        console.error('Upload error');
-        setUploadState('idle');
-        setProgress(0);
-      });
-
-      xhr.open('POST', '/api/new_file');
-      xhr.send(formData);
+      setSelectedFile(fileToUpload);
+      setProgress(100);
     }
   };
 

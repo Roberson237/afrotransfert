@@ -125,29 +125,35 @@ export default function Framefileinfo({ file, onClose }) {
             });
 
             xhr.addEventListener('load', () => {
+                console.log('Réponse du serveur:', xhr.status, xhr.responseText);
                 if (xhr.status === 200) {
-                    const result = JSON.parse(xhr.responseText);
-                    console.log('Résultat du serveur:', result);
-                    if (result.success) {
-                        setShareResult({
-                            shareUrl: result.shareUrl,
-                            fileId: result.fileId,
-                            fileName: file.name,
-                            fileSize: (file.size / 1024 / 1024).toFixed(2) + ' MB',
-                            hasPassword: !!password,
-                            expiresIn: expiration === 'never' ? 'Jamais' : `${expiration} jours`
-                        });
-                        setUploadProgress(100);
-                        setUploadStage('complete');
-                        setTimeout(() => {
+                    try {
+                        const result = JSON.parse(xhr.responseText);
+                        console.log('Résultat du serveur parsé:', result);
+                        if (result.success) {
+                            setUploadProgress(100);
+                            setUploadStage('complete');
+                            setShareResult({
+                                shareUrl: result.shareUrl,
+                                fileId: result.fileId,
+                                fileName: file.name,
+                                fileSize: (file.size / 1024 / 1024).toFixed(2) + ' MB',
+                                hasPassword: !!password,
+                                expiresIn: expiration === 'never' ? 'Jamais' : `${expiration} jours`
+                            });
                             setLoading(false);
-                        }, 500);
-                    } else {
-                        setError(result.error || 'Erreur lors de l\'upload');
+                        } else {
+                            setError(result.error || 'Erreur lors de l\'upload');
+                            setLoading(false);
+                            setUploadStage('preparing');
+                        }
+                    } catch (parseError) {
+                        console.error('Erreur parse JSON:', parseError);
+                        setError('Erreur lors de la lecture de la réponse du serveur');
                         setLoading(false);
                     }
                 } else {
-                    setError('Erreur lors de l\'upload');
+                    setError(`Erreur serveur (${xhr.status}): ${xhr.responseText}`);
                     setLoading(false);
                 }
             });
