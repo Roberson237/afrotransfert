@@ -2,14 +2,13 @@ import NextAuth from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import { prisma } from '../../../../lib/prisma';
 
-export const authOptions = {
+const authOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      // Augmenter le timeout pour éviter les erreurs de timeout
       httpOptions: {
-        timeout: 10000, // 10 secondes au lieu de 3.5
+        timeout: 10000,
       },
     }),
   ],
@@ -18,11 +17,10 @@ export const authOptions = {
       console.log('🔐 Tentative de connexion Google:', {
         email: user.email,
         name: user.name,
-        provider: account.provider
+        provider: account.provider,
       });
 
       try {
-        // Vérifier si l'utilisateur existe déjà
         const existingUser = await prisma.utilisateur.findUnique({
           where: { email: user.email },
         });
@@ -34,7 +32,7 @@ export const authOptions = {
               nom: profile.family_name || user.name.split(' ')[1] || 'Nom',
               prenom: profile.given_name || user.name.split(' ')[0] || 'Prénom',
               email: user.email,
-              mot_de_passe: null, // Pas de mot de passe pour les comptes Google
+              mot_de_passe: null,
             },
           });
           console.log('✅ Utilisateur Google créé avec succès');
@@ -49,7 +47,6 @@ export const authOptions = {
       }
     },
     async session({ session, token }) {
-      // Ajouter l'ID utilisateur à la session
       if (token.sub) {
         const user = await prisma.utilisateur.findUnique({
           where: { email: session.user.email },
