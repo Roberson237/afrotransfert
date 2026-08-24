@@ -1,9 +1,8 @@
 import { prisma } from "../../../lib/prisma";
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
 import bcrypt from 'bcryptjs';
 import { NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
+import { put } from '@vercel/blob';
 
 export async function POST(request) {
     try {
@@ -22,49 +21,42 @@ export async function POST(request) {
         const buffer = await file.arrayBuffer();
         const bytes = Buffer.from(buffer);
         
-        // Créer le dossier s'il n'existe pas
-        const uploadDir = path.join(process.cwd(), 'public', 'file_saved');
-        try {
-            await mkdir(uploadDir, { recursive: true });
-        } catch (mkdirError) {
-            // Le dossier existe peut-être déjà, on continue
-        }
-        
-        // CORRECTION 1: Générer un nom de fichier unique
+        // Génération d'un nom unique pour le fichier
         const originalFileName = file.name;
-        const fileExt = path.extname(originalFileName); // .sql, .jpg, etc.
-        const fileBaseName = path.basename(originalFileName, fileExt);
+        const fileExt = originalFileName.split('.').pop();
+        const fileBaseName = originalFileName.replace(/\.[^/.]+$/, '');
         
-        // Créer un nom unique pour éviter les collisions
-        const uniqueFileName = `${Date.now()}-${uuidv4().substring(0, 8)}-${fileBaseName}${fileExt}`;
-        
-        // CORRECTION 2: Enlever les caractères problématiques
+        // Créer un nom unique pour Vercel Blob
+        const uniqueFileName = `${Date.now()}-${uuidv4().substring(0, 8)}-${fileBaseName}.${fileExt}`;
         const safeFileName = uniqueFileName.replace(/[\\/:*?"<>|]/g, '-');
         
-        const filepath = path.join(uploadDir, safeFileName);
-        await writeFile(filepath, bytes);
+        console.log('Upload vers Vercel Blob:', safeFileName);
 
-        console.log('Fichier sauvegardé à:', filepath);
+        // Upload vers Vercel Blob
+        const blob = await put(safeFileName, bytes, {
+            access: 'public',
+            contentType: file.type || 'application/octet-stream'
+        });
+
+        console.log('Blob uploadé:', blob.url);
 
         const password = formData.get('password') || '';
         const expirationDays = formData.get('expiration') 
             ? parseInt(formData.get('expiration')) 
             : 7;
         
-        // CORRECTION 3: Stocker le chemin relatif dans la base de données
-        const relativePath = `file_saved/${safeFileName}`;
-        
+        // Créer l'entrée fichier dans la base de données avec l'URL Vercel Blob
         const fichier = await prisma.fichier.create({
             data: {
-                nom: originalFileName, // Nom original avec chemin si nécessaire
-                chemin: relativePath, // Chemin relatif au dossier public
+                nom: originalFileName,
+                chemin: blob.url, // Stocker l'URL Vercel Blob
                 taille: file.size.toString(),
                 type: file.type,
                 date_upload: new Date(),
             }
         });
         
-        console.log('Fichier enregistré en DB avec chemin:', relativePath);
+        console.log('Fichier enregistré en DB avec URL:', blob.url);
         
         // Générer l'URL de partage
         const protocol = request.headers.get('x-forwarded-proto') || 'http';
@@ -92,7 +84,7 @@ export async function POST(request) {
         return NextResponse.json(
             {
                 success: true,
-                shareUrl: shareUrl,
+                shareUrl: `/share/${fichier.id}`,
                 fileId: fichier.id,
                 message: 'Fichier sauvegardé avec succès'
             },

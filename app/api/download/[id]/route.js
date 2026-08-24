@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
-import { readFile } from 'fs/promises';
-import path from 'path';
 import bcrypt from 'bcryptjs';
 
 export async function GET(request, { params }) {
@@ -84,37 +82,17 @@ export async function GET(request, { params }) {
             console.log('Mot de passe correct!');
         }
 
-        // CORRECTION ICI : Gestion du chemin du fichier
-        let filePath;
+        // CORRECTION : Utiliser directement l'URL Vercel Blob stockée
+        const fileUrl = fichier.chemin;
         
-        // Si le chemin est absolu (commence par C:\ ou /)
-        if (fichier.chemin.startsWith('C:\\') || fichier.chemin.startsWith('/')) {
-            filePath = fichier.chemin; // Utiliser directement le chemin absolu
-            console.log('Chemin absolu détecté, utilisation directe');
-        } 
-        // Si le chemin est relatif
-        else if (fichier.chemin.startsWith('public/') || fichier.chemin.startsWith('./public/')) {
-            filePath = path.join(process.cwd(), fichier.chemin);
-            console.log('Chemin relatif détecté, ajout de process.cwd()');
-        }
-        // Par défaut (chemin relatif sans "public/")
-        else {
-            filePath = path.join(process.cwd(), 'public', fichier.chemin);
-            console.log('Chemin par défaut, ajout de public/');
-        }
-        
-        console.log('Chemin final du fichier:', filePath);
+        console.log('Redirection vers l\'URL Blob:', fileUrl);
 
-        // Lire le fichier depuis le système de fichiers
-        const fileBuffer = await readFile(filePath);
-        console.log('Taille du fichier:', fileBuffer.length, 'bytes');
-
-        return new NextResponse(fileBuffer, {
+        // Rediriger vers l'URL Blob publique
+        return NextResponse.redirect(fileUrl, {
+            status: 302,
             headers: {
-                'Content-Type': fichier.type || 'application/octet-stream',
                 'Content-Disposition': `attachment; filename="${encodeURIComponent(fichier.nom)}"`,
-                'Content-Length': fileBuffer.length.toString(),
-            },
+            }
         });
 
     } catch (error) {
