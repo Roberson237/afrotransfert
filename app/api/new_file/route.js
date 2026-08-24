@@ -61,8 +61,8 @@ export async function POST(request) {
         // Générer l'URL de partage
         const protocol = request.headers.get('x-forwarded-proto') || 'http';
         const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'localhost:3000';
-        const baseUrl = `${protocol}://${host}`;
-        const shareUrl = `${baseUrl}/share/${fichier.id}`;
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`;
+        const shareUrl = `${baseUrl.replace(/\/$/, '')}/share/${fichier.id}`;
         
         // Hasher le mot de passe seulement s'il n'est pas vide
         let hashedPassword = null;
@@ -84,7 +84,7 @@ export async function POST(request) {
         return NextResponse.json(
             {
                 success: true,
-                shareUrl: `/share/${fichier.id}`,
+                shareUrl: shareUrl,
                 fileId: fichier.id,
                 message: 'Fichier sauvegardé avec succès'
             },
