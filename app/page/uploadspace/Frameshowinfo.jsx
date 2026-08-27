@@ -2,18 +2,20 @@
 import { useState, useEffect } from "react";
 import { FaEye, FaEyeSlash, FaTimes, FaCopy, FaCheck, FaShareAlt, FaLink, FaCloudUploadAlt, FaFolder, FaCog } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion'; 
+import { getFriendlyErrorMessage } from '../../../lib/userFriendlyErrors';
 
 export default function Framefileinfo({ file, onClose }) {
     const [showPassword, setShowPassword] = useState(false);
     const [isVisible, setIsVisible] = useState(true);
     const [password, setPassword] = useState('');
-    const [expiration, setExpiration] = useState('7');
+    const [expiration, setExpiration] = useState('3');
     const [loading, setLoading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
-    const [uploadStage, setUploadStage] = useState('preparing'); // 'preparing', 'uploading', 'processing', 'complete'
+    const [uploadStage, setUploadStage] = useState('preparing');
     const [shareResult, setShareResult] = useState(null);
     const [error, setError] = useState(null);
     const [copied, setCopied] = useState(false);
+    const [shareFeedback, setShareFeedback] = useState('');
 
     useEffect(() => {
         setIsVisible(true);
@@ -47,7 +49,6 @@ export default function Framefileinfo({ file, onClose }) {
             '.txt': 'Text File',
             '.doc': 'Word Document',
             '.docx': 'Word Document',
-            '.exe': 'Executable File',
             '.zip': 'Compressed Folder'
         };
         return types[ext] || 'Unknown File Type';
@@ -93,9 +94,9 @@ export default function Framefileinfo({ file, onClose }) {
         setError(null);
         setUploadProgress(0);
         setUploadStage('uploading');
+        setShareFeedback('');
 
         try {
-            // Création du FormData
             const formData = new FormData();
             formData.append('file', file);
             
@@ -107,7 +108,6 @@ export default function Framefileinfo({ file, onClose }) {
                 formData.append('expiration', expiration);
             }
 
-            // Upload avec XMLHttpRequest pour progression réelle
             const xhr = new XMLHttpRequest();
 
             xhr.upload.addEventListener('progress', (event) => {
@@ -125,11 +125,9 @@ export default function Framefileinfo({ file, onClose }) {
             });
 
             xhr.addEventListener('load', () => {
-                console.log('Réponse du serveur:', xhr.status, xhr.responseText);
                 if (xhr.status === 200) {
                     try {
                         const result = JSON.parse(xhr.responseText);
-                        console.log('Résultat du serveur parsé:', result);
                         if (result.success) {
                             setUploadProgress(100);
                             setUploadStage('complete');
@@ -143,23 +141,23 @@ export default function Framefileinfo({ file, onClose }) {
                             });
                             setLoading(false);
                         } else {
-                            setError(result.error || 'Erreur lors de l\'upload');
+                            setError(getFriendlyErrorMessage(result?.error, 'Le téléchargement a échoué. Réessayez dans quelques instants.'));
                             setLoading(false);
                             setUploadStage('preparing');
                         }
                     } catch (parseError) {
                         console.error('Erreur parse JSON:', parseError);
-                        setError('Erreur lors de la lecture de la réponse du serveur');
+                        setError('Le téléchargement a échoué. Réessayez dans quelques instants.');
                         setLoading(false);
                     }
                 } else {
-                    setError(`Erreur serveur (${xhr.status}): ${xhr.responseText}`);
+                    setError(getFriendlyErrorMessage(`Erreur serveur (${xhr.status})`, 'Le téléchargement a échoué. Réessayez dans quelques instants.'));
                     setLoading(false);
                 }
             });
 
             xhr.addEventListener('error', () => {
-                setError('Erreur réseau lors de l\'upload');
+                setError('Le service de téléchargement est momentanément indisponible. Réessayez dans quelques instants.');
                 setLoading(false);
             });
 
@@ -177,10 +175,12 @@ export default function Framefileinfo({ file, onClose }) {
             navigator.clipboard.writeText(shareResult.shareUrl)
                 .then(() => {
                     setCopied(true);
+                    setShareFeedback('Lien copié dans le presse-papiers.');
                     setTimeout(() => setCopied(false), 2000);
                 })
                 .catch(err => {
                     console.error('Erreur lors de la copie:', err);
+                    setShareFeedback('Impossible de copier automatiquement. Copiez le lien manuellement.');
                 });
         }
     };
@@ -193,17 +193,22 @@ export default function Framefileinfo({ file, onClose }) {
                     text: `Voici le fichier ${shareResult.fileName} partagé via Sendsey`,
                     url: shareResult.shareUrl,
                 });
+                setShareFeedback('Partage lancé.');
             } catch (err) {
                 console.log('Partage annulé ou erreur:', err);
+                setShareFeedback('Le partage a été annulé. Vous pouvez copier le lien manuellement.');
             }
+            return;
+        }
+
+        if (shareResult?.shareUrl) {
+            setShareFeedback('L’API de partage n’est pas disponible sur ce navigateur. Copiez le lien ci-dessous.');
+            handleCopyLink();
         }
     };
 
     const fileInfo = getFileInfo();
-
-    if (!fileInfo) {
-        return null;
-    }
+    if (!fileInfo) return null;
 
     return (
         <AnimatePresence>
@@ -224,10 +229,9 @@ export default function Framefileinfo({ file, onClose }) {
                         initial={{ opacity: 0, y: -30, scale: 0.97 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -30, scale: 0.97 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        transition={{ duration: 0.2, ease: 'easeOut' }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        {/* Header */}
                         <div className="flex justify-between items-center px-6 py-4 bg-[#003580]">
                             <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                                 {shareResult ? (
@@ -252,7 +256,6 @@ export default function Framefileinfo({ file, onClose }) {
                             )}
                         </div>
 
-                        {/* Content */}
                         <div className="p-6 text-[#0b1f33]">
                             {shareResult ? (
                                 <div className="py-4">
@@ -263,8 +266,7 @@ export default function Framefileinfo({ file, onClose }) {
                                         <h3 className="text-xl font-semibold mb-1">Fichier uploadé avec succès</h3>
                                         <p className="text-[#5b6b7c] text-sm">Votre lien de partage est prêt</p>
                                     </div>
-                                    
-                                    {/* Informations du fichier */}
+
                                     <div className="bg-[#f7f9fb] p-4 rounded-xl mb-6 border border-[#e5e9ee]">
                                         <div className="flex items-center gap-3 mb-3">
                                             <div className="w-10 h-10 bg-[#003580]/8 rounded-lg flex items-center justify-center">
@@ -288,20 +290,17 @@ export default function Framefileinfo({ file, onClose }) {
                                             </div>
                                         </div>
                                     </div>
-                                    
-                                    {/* Lien de partage - Section principale */}
+
                                     <div className="mb-8 bg-[#f7f9fb] p-6 rounded-xl border border-[#e5e9ee]">
                                         <p className="font-semibold text-[#0b1f33] mb-4 flex items-center gap-2">
                                             <FaLink className="text-[#003580]" size={14} /> Lien de partage
                                         </p>
-                                        
-                                        {/* Lien à copier */}
+
                                         <div className="bg-white border border-[#e5e9ee] rounded-lg p-4 mb-5 break-all">
                                             <p className="text-xs text-[#8494a5] mb-1">Cliquez pour sélectionner :</p>
                                             <p className="text-sm font-mono font-medium text-[#003580] select-all">{shareResult.shareUrl}</p>
                                         </div>
-                                        
-                                        {/* Boutons d'action */}
+
                                         <div className="flex flex-col sm:flex-row gap-3 justify-center">
                                             <button 
                                                 onClick={handleCopyLink}
@@ -328,9 +327,12 @@ export default function Framefileinfo({ file, onClose }) {
                                                 <FaShareAlt size={14} /> Partager
                                             </button>
                                         </div>
+
+                                        {shareFeedback && (
+                                            <p className="mt-3 text-center text-sm text-[#5b6b7c]">{shareFeedback}</p>
+                                        )}
                                     </div>
 
-                                    {/* Actions finales */}
                                     <div className="flex flex-col sm:flex-row gap-3 justify-center pt-6 border-t border-[#e5e9ee]">
                                         <a
                                             href={shareResult.shareUrl}
@@ -350,7 +352,6 @@ export default function Framefileinfo({ file, onClose }) {
                                 </div>
                             ) : loading ? (
                                 <div className="py-6">
-                                    {/* Barre de progression */}
                                     <div className="mb-8">
                                         <div className="flex justify-between items-center mb-3">
                                             <span className="font-medium text-[#0b1f33] flex items-center gap-2">
@@ -360,6 +361,7 @@ export default function Framefileinfo({ file, onClose }) {
                                             <span className="font-semibold text-[#003580]">{Math.round(uploadProgress)}%</span>
                                         </div>
                                         
+
                                         <div className="w-full bg-[#e5e9ee] rounded-full h-2.5 overflow-hidden">
                                             <motion.div 
                                                 className="h-full bg-[#003580] rounded-full"
@@ -383,8 +385,7 @@ export default function Framefileinfo({ file, onClose }) {
                                             <div className={`w-2.5 h-2.5 rounded-full ${uploadStage === 'complete' ? 'bg-[#00A651]' : 'bg-[#e5e9ee]'}`}></div>
                                         </div>
                                     </div>
-                                    
-                                    {/* Informations du fichier pendant l'upload */}
+
                                     <div className="bg-[#f7f9fb] p-4 rounded-xl border border-[#e5e9ee]">
                                         <div className="flex items-center gap-3">
                                             <div className="w-11 h-11 bg-[#003580]/8 rounded-lg flex items-center justify-center">
@@ -433,7 +434,6 @@ export default function Framefileinfo({ file, onClose }) {
                                         </div>
                                     </div>
 
-                                    {/* Password Section */}
                                     <div className="mb-6">
                                         <label className="block font-medium text-[#0b1f33] mb-2 text-sm">
                                             Protection par mot de passe (optionnel)
@@ -456,7 +456,6 @@ export default function Framefileinfo({ file, onClose }) {
                                         </div>
                                     </div>
 
-                                    {/* Expiration */}
                                     <div className="mb-8">
                                         <label className="block font-medium text-[#0b1f33] mb-2 text-sm">
                                             Expiration du lien (en jours)
@@ -468,7 +467,7 @@ export default function Framefileinfo({ file, onClose }) {
                                         >
                                             <option value="1">1 jour</option>
                                             <option value="3">3 jours</option>
-                                            
+                                            <option value="7">7 jours</option>
                                         </select>
                                     </div>
 
@@ -478,7 +477,6 @@ export default function Framefileinfo({ file, onClose }) {
                                         </div>
                                     )}
 
-                                    {/* Action Buttons */}
                                     <div className="flex justify-center gap-3 pt-4">
                                         <button
                                             onClick={handleClose}

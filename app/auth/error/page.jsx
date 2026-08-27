@@ -11,26 +11,26 @@ export default function AuthError({ searchParams }) {
       case 'AccessDenied':
         return {
           title: 'Accès refusé',
-          message: 'Vous avez refusé l\'autorisation Google. Pour vous connecter, vous devez accepter les permissions.',
-          action: 'Réessayer la connexion'
+          message: 'Vous avez refusé l’autorisation Google. Pour continuer, veuillez accepter les permissions et réessayer.',
+          action: 'Réessayer la connexion',
         };
       case 'Configuration':
         return {
           title: 'Erreur de configuration',
-          message: 'Il y a un problème avec la configuration OAuth. Vérifiez les clés API.',
-          action: 'Contacter le support'
+          message: 'La configuration OAuth est incomplète. Vérifiez les variables Google et les URL de callback de production.',
+          action: 'Vérifier la configuration',
         };
       case 'OAuthCallback':
         return {
           title: 'Erreur de callback',
-          message: 'Erreur lors du retour depuis Google. Vérifiez l\'URL de redirection.',
-          action: 'Réessayer'
+          message: 'Le retour depuis Google a échoué. Vérifiez l’URL de redirection et réessayez.',
+          action: 'Réessayer',
         };
       default:
         return {
-          title: 'Erreur d\'authentification',
-          message: 'Une erreur inattendue s\'est produite lors de la connexion.',
-          action: 'Réessayer'
+          title: 'Erreur d’authentification',
+          message: 'Une erreur inconnue s’est produite lors de la connexion. Veuillez réessayer.',
+          action: 'Réessayer',
         };
     }
   };
@@ -46,24 +46,23 @@ export default function AuthError({ searchParams }) {
           </svg>
         </div>
 
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">
-          {errorInfo.title}
-        </h1>
-
-        <p className="text-gray-600 mb-8">
-          {errorInfo.message}
-        </p>
+        <h1 className="text-2xl font-bold text-gray-900 mb-4">{errorInfo.title}</h1>
+        <p className="text-gray-600 mb-8">{errorInfo.message}</p>
 
         <div className="space-y-3">
           <button
-            onClick={() => window.location.href = '/'}
+            onClick={() => {
+              window.location.href = '/';
+            }}
             className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
           >
             {errorInfo.action}
           </button>
 
           <button
-            onClick={() => window.history.back()}
+            onClick={() => {
+              window.history.back();
+            }}
             className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-colors"
           >
             Retour
@@ -73,7 +72,7 @@ export default function AuthError({ searchParams }) {
         {error && (
           <div className="mt-6 p-3 bg-gray-50 rounded-lg">
             <p className="text-xs text-gray-500">
-              Code d'erreur: <code className="font-mono">{error}</code>
+              Code d’erreur: <code className="font-mono">{error}</code>
             </p>
           </div>
         )}

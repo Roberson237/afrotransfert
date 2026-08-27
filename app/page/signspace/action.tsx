@@ -1,38 +1,38 @@
 'use server';
 
-import { redirect } from 'next/navigation';
 import { prisma } from '../../../lib/prisma';
 import bcrypt from 'bcryptjs';
 
-export async function New_User(formData: FormData ){
+export async function New_User(formData: FormData) {
   try {
-    // Récupérer les données du formulaire
-    const nom = formData.get('fn') as string;
-    const email = formData.get('en') as string;
-    const prenom = formData.get('ln') as string;
-    const mot_de_passe = formData.get('pass') as string;
+    const nom = String(formData.get('fn') ?? '').trim();
+    const email = String(formData.get('en') ?? '').trim().toLowerCase();
+    const prenom = String(formData.get('ln') ?? '').trim();
+    const mot_de_passe = String(formData.get('pass') ?? '');
 
-    // Validation des données
     if (!nom || !email || !prenom || !mot_de_passe) {
-      throw new Error('Tous les champs sont requis');
+      return { success: false, error: 'Tous les champs sont requis.' };
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return { success: false, error: 'Veuillez saisir une adresse email valide.' };
     }
 
     if (mot_de_passe.length < 8) {
-      throw new Error('Le mot de passe doit contenir au moins 8 caractères');
+      return { success: false, error: 'Le mot de passe doit contenir au moins 8 caractères.' };
     }
 
- 
     const existingUser = await prisma.utilisateur.findUnique({
-      where: { email }
+      where: { email },
     });
 
     if (existingUser) {
-      throw new Error('Cet email est déjà utilisé');
+      return { success: false, error: 'Cette adresse email est déjà utilisée.' };
     }
 
     const hashedPassword = await bcrypt.hash(mot_de_passe, 10);
 
-    
     await prisma.utilisateur.create({
       data: {
         nom,
@@ -42,15 +42,9 @@ export async function New_User(formData: FormData ){
       },
     });
 
-
-    redirect('/page/uploadspace/');
-
+    return { success: true };
   } catch (error) {
     console.error('Erreur lors de la création du compte:', error);
-    
-    // Vous pouvez gérer l'erreur différemment
-    // Par exemple, rediriger vers une page d'erreur
-    // Ou retourner un message d'erreur
-    throw error; // L'erreur sera affichée dans le composant
+    return { success: false, error: 'Impossible de créer le compte pour le moment. Veuillez réessayer.' };
   }
 }

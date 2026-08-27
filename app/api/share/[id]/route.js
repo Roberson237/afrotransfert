@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../../lib/prisma';
+import { getFriendlyErrorMessage } from '../../../../lib/userFriendlyErrors';
 
 export async function GET(request, { params }) {
     try {
@@ -17,30 +18,27 @@ export async function GET(request, { params }) {
 
         if (!fichier) {
             return NextResponse.json(
-                { success: false, error: 'Fichier non trouvé' },
+                { success: false, error: getFriendlyErrorMessage('Fichier non trouvé', 'Ce fichier n’est plus disponible.') },
                 { status: 404 }
             );
         }
 
-        // Vérifier si le lien est expiré
-        // Note: liensPartage est un tableau, donc on vérifie le premier élément
         if (fichier.liensPartage && fichier.liensPartage.length > 0) {
-            const lienPartage = fichier.liensPartage[0]; // Premier lien
+            const lienPartage = fichier.liensPartage[0];
             
             if (lienPartage.expiration < new Date()) {
                 return NextResponse.json(
-                    { success: false, error: 'Lien expiré' },
+                    { success: false, error: getFriendlyErrorMessage('Lien expiré', 'Ce lien a expiré.') },
                     { status: 410 }
                 );
             }
 
-            // Retourner les données du fichier
             return NextResponse.json({
                 success: true,
                 fileName: fichier.nom,
                 fileSize: parseInt(fichier.taille),
                 type: fichier.type,
-                hasPassword: !!lienPartage.code_access, // Utiliser le lien spécifique
+                hasPassword: !!lienPartage.code_access,
                 uploadedAt: fichier.date_upload,
                 lienPartage: {
                     url: lienPartage.url,
@@ -48,9 +46,8 @@ export async function GET(request, { params }) {
                 }
             });
         } else {
-            // Aucun lien de partage trouvé
             return NextResponse.json(
-                { success: false, error: 'Aucun lien de partage disponible' },
+                { success: false, error: getFriendlyErrorMessage('Aucun lien de partage disponible', 'Ce fichier n’est pas disponible pour le moment.') },
                 { status: 404 }
             );
         }
@@ -58,7 +55,7 @@ export async function GET(request, { params }) {
     } catch (error) {
         console.error('Erreur API share:', error);
         return NextResponse.json(
-            { success: false, error: 'Erreur serveur' },
+            { success: false, error: getFriendlyErrorMessage(error?.message, 'Le service de partage est temporairement indisponible.') },
             { status: 500 }
         );
     }

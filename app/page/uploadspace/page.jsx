@@ -12,9 +12,9 @@ export default function Uploade() {
   const [progress, setProgress] = useState(0);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [error, setError] = useState('');
   const fileInputRef = useRef(null);
 
-  // Fonction pour compresser un dossier en ZIP (drag & drop uniquement)
   const zipFolder = async (files, onProgress) => {
     const zip = new JSZip();
     const folderName = files[0].webkitRelativePath.split('/')[0];
@@ -44,10 +44,28 @@ export default function Uploade() {
     });
   };
 
-  // Gestion de la sélection de fichiers/dossiers
   const handleFileSelect = async (files) => {
+    if (!files || files.length === 0) return;
+
+    if (files.length > 1) {
+      setError('Un seul fichier est autorisé à la fois.');
+      setUploadState('idle');
+      setProgress(0);
+      return;
+    }
+
+    const file = files[0];
+    const forbiddenExt = ['.exe'];
+    const fileExt = file.name.split('.').pop()?.toLowerCase();
+    if (forbiddenExt.includes(`.${fileExt}`)) {
+      setError('Les fichiers exécutables ne sont pas autorisés.');
+      setUploadState('idle');
+      setProgress(0);
+      return;
+    }
+
     let fileToUpload;
-    let isFolder = files.length > 1 && files[0].webkitRelativePath;
+    const isFolder = file.webkitRelativePath && file.webkitRelativePath.includes('/');
 
     if (isFolder) {
       setUploadState('loading');
@@ -58,23 +76,24 @@ export default function Uploade() {
         fileToUpload = await zipFolder(Array.from(files), (currentProgress) => {
           setProgress(currentProgress);
         });
-
         setProgress(95);
         setIsCompressing(false);
-
       } catch (error) {
-        console.error('❌ Erreur lors de la compression:', error);
+        console.error('Erreur lors de la compression:', error);
         setProgress(0);
         setUploadState('idle');
         setIsCompressing(false);
+        setError('Impossible de compresser ce dossier.');
         return;
       }
     } else {
       setUploadState('ready');
-      fileToUpload = files[0];
-      setSelectedFile(fileToUpload);
+      fileToUpload = file;
       setProgress(100);
     }
+
+    setSelectedFile(fileToUpload);
+    setError('');
   };
 
   const handleFileUploadClick = () => {
@@ -107,7 +126,6 @@ export default function Uploade() {
     setIsDragOver(false);
 
     const files = e.dataTransfer.files;
-
     if (files && files.length > 0) {
       handleFileSelect(files);
     }
@@ -118,6 +136,7 @@ export default function Uploade() {
     setSelectedFile(null);
     setProgress(0);
     setIsCompressing(false);
+    setError('');
   };
 
   return (
@@ -128,15 +147,15 @@ export default function Uploade() {
       onDrop={handleDrop}
     >
       <input
+        id="file-upload"
         type="file"
         ref={fileInputRef}
         onChange={handleFileInputChange}
-        className="hidden"
-        accept=".pdf,.jpg,.jpeg,.png,.gif,.txt,.doc,.docx,.zip,.exe"
-        multiple
+        className="sr-only"
+        accept=".pdf,.jpg,.jpeg,.png,.gif,.txt,.doc,.docx,.zip"
+        aria-label="Choisir un fichier à partager"
       />
 
-      {/* Overlay de drag & drop */}
       <AnimatePresence>
         {isDragOver && (
           <motion.div
@@ -157,7 +176,12 @@ export default function Uploade() {
         )}
       </AnimatePresence>
 
-      {/* État initial - Bouton d'upload unique */}
+      {error && (
+        <div className="mb-4 w-full max-w-md rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       {uploadState === 'idle' && (
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -175,15 +199,18 @@ export default function Uploade() {
             </p>
           </div>
 
-          <motion.button
-            onClick={handleFileUploadClick}
-            className="w-full flex items-center justify-center gap-3 px-8 py-4 bg-[#003580] hover:bg-[#002a66] text-white font-medium text-base rounded-xl shadow-sm hover:shadow-md transition-all duration-200"
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <FaCloudUploadAlt size={20} />
-            Choisir un fichier
-          </motion.button>
+          <label htmlFor="file-upload">
+            <motion.button
+              onClick={handleFileUploadClick}
+              type="button"
+              className="w-full flex items-center justify-center gap-3 px-8 py-4 bg-[#003580] hover:bg-[#002a66] text-white font-medium text-base rounded-xl shadow-sm hover:shadow-md transition-all duration-200"
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <FaCloudUploadAlt size={20} />
+              Choisir un fichier
+            </motion.button>
+          </label>
 
           <div className="w-full border-t border-[#e5e9ee] pt-4 text-center">
             <p className="text-xs text-[#8494a5]">
@@ -196,7 +223,6 @@ export default function Uploade() {
         </motion.div>
       )}
 
-      {/* État de chargement */}
       {uploadState === 'loading' && (
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
@@ -242,13 +268,9 @@ export default function Uploade() {
         </motion.div>
       )}
 
-      {/* État prêt - Frame avec informations */}
       <AnimatePresence>
         {uploadState === 'ready' && selectedFile && (
-          <Framefileinfo
-            file={selectedFile}
-            onClose={handleCloseFrame}
-          />
+          <Framefileinfo file={selectedFile} onClose={handleCloseFrame} />
         )}
       </AnimatePresence>
     </div>

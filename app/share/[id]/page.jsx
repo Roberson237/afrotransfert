@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaFile, FaLock, FaEye, FaEyeSlash, FaCloudDownloadAlt, FaFileAlt, FaExclamationTriangle } from 'react-icons/fa';
 import { saveAs } from 'file-saver';
+import { getFriendlyErrorMessage } from '../../../lib/userFriendlyErrors';
 
 export default function SharePage() {
     const params = useParams();
@@ -14,6 +15,7 @@ export default function SharePage() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [downloading, setDownloading] = useState(false);
+    const [downloadError, setDownloadError] = useState('');
     const [needsPassword, setNeedsPassword] = useState(false);
 
     useEffect(() => {
@@ -24,12 +26,13 @@ export default function SharePage() {
 
                 if (data.success) {
                     setFileInfo(data);
-                    setNeedsPassword(data.hasPassword);
+                    setNeedsPassword(Boolean(data.hasPassword));
+                    setError(null);
                 } else {
-                    setError(data.error);
+                    setError(getFriendlyErrorMessage(data?.error, 'Ce fichier est inaccessible pour le moment.'));
                 }
             } catch (err) {
-                setError('Erreur lors du chargement du fichier');
+                setError('Ce fichier est actuellement indisponible. Réessayez dans quelques instants.');
             } finally {
                 setLoading(false);
             }
@@ -41,20 +44,27 @@ export default function SharePage() {
     }, [params.id]);
 
     const handleDownload = async () => {
-        if (needsPassword && !password) return;
+        if (needsPassword && !password) {
+            setDownloadError('Veuillez saisir le mot de passe pour continuer.');
+            return;
+        }
 
         setDownloading(true);
+        setDownloadError('');
+
         try {
             const downloadUrl = needsPassword ? `/api/download/${params.id}?password=${encodeURIComponent(password)}` : `/api/download/${params.id}`;
-
             const response = await fetch(downloadUrl);
-            if (!response.ok) throw new Error('Download failed');
+            if (!response.ok) {
+                const data = await response.json().catch(() => null);
+                throw new Error(data?.error || 'Le téléchargement a échoué.');
+            }
 
             const blob = await response.blob();
             saveAs(blob, fileInfo.fileName);
         } catch (error) {
             console.error('Download failed', error);
-            alert('Échec du téléchargement. Vérifiez le mot de passe.');
+            setDownloadError(getFriendlyErrorMessage(error.message, 'Le téléchargement a échoué. Vérifiez le mot de passe et réessayez.'));
         } finally {
             setDownloading(false);
         }
@@ -122,7 +132,6 @@ export default function SharePage() {
                 transition={{ duration: 0.3 }}
                 className="max-w-md w-full"
             >
-                {/* Header */}
                 <div className="text-center mb-6">
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-[#003580]/5 rounded-2xl mb-5">
                         <FaCloudDownloadAlt className="text-[#003580]" size={28} />
@@ -131,7 +140,6 @@ export default function SharePage() {
                     <p className="text-[#5b6b7c] text-sm">Téléchargez votre fichier en toute sécurité</p>
                 </div>
 
-                {/* File Info Card */}
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -152,7 +160,6 @@ export default function SharePage() {
                         </div>
                     </div>
 
-                    {/* Password Field */}
                     <AnimatePresence>
                         {needsPassword && (
                             <motion.div
@@ -167,7 +174,7 @@ export default function SharePage() {
                                 </label>
                                 <div className="relative">
                                     <input
-                                        type={showPassword ? "text" : "password"}
+                                        type={showPassword ? 'text' : 'password'}
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         placeholder="Entrez le mot de passe"
@@ -186,7 +193,12 @@ export default function SharePage() {
                         )}
                     </AnimatePresence>
 
-                    {/* Download Button */}
+                    {downloadError && (
+                        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            {downloadError}
+                        </div>
+                    )}
+
                     <motion.button
                         onClick={handleDownload}
                         disabled={downloading || (needsPassword && !password)}
@@ -208,7 +220,6 @@ export default function SharePage() {
                     </motion.button>
                 </motion.div>
 
-                {/* Footer */}
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1, transition: { delay: 0.2 } }}
